@@ -15,7 +15,7 @@
 (function (global) {
   'use strict';
 
-  var VERSION = '1.0.0';
+  var VERSION = '1.0.1';
 
   /**
    * Everything the bookmarklet needs must live inside `run` so that
@@ -24,36 +24,49 @@
   function run() {
     var STYLE_ID = 'ai-multi-search-styles';
     var ROOT_ID = 'ai-multi-search-root';
+    var BOOKMARKLET_VERSION = '1.0.1';
 
     var PLATFORMS = [
       {
         id: 'claude',
         name: 'Claude',
         hostLabel: 'claude.ai',
-        prefill: true,
-        buildUrl: function (question) {
-          return 'https://claude.ai/new?q=' + encodeURIComponent(question);
-        }
+        prefill: true
       },
       {
         id: 'gemini',
         name: 'Gemini',
         hostLabel: 'gemini.google.com',
-        prefill: false,
-        buildUrl: function () {
-          return 'https://gemini.google.com/app';
-        }
+        prefill: false
       },
       {
         id: 'deepseek',
         name: 'DeepSeek',
         hostLabel: 'chat.deepseek.com',
-        prefill: false,
-        buildUrl: function () {
-          return 'https://chat.deepseek.com/';
-        }
+        prefill: false
       }
     ];
+
+    /** Explicit URL map so each platform can only open its own site. */
+    function buildPlatformUrl(id, question) {
+      if (id === 'claude') {
+        return 'https://claude.ai/new?q=' + encodeURIComponent(question);
+      }
+      if (id === 'gemini') {
+        return 'https://gemini.google.com/app';
+      }
+      if (id === 'deepseek') {
+        return 'https://chat.deepseek.com/';
+      }
+      return '';
+    }
+
+    function getPlatformById(id) {
+      for (var i = 0; i < PLATFORMS.length; i++) {
+        if (PLATFORMS[i].id === id) return PLATFORMS[i];
+      }
+      return null;
+    }
 
     function cleanText(value) {
       return String(value || '')
@@ -209,10 +222,13 @@
         ' .ams-list{display:flex;flex-direction:column;gap:8px;margin:0 0 14px;}' +
         '#' +
         ROOT_ID +
-        ' .ams-option{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border-radius:12px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.03);cursor:pointer;}' +
+        ' .ams-option{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.03);}' +
         '#' +
         ROOT_ID +
         ' .ams-option:hover{border-color:rgba(125,211,192,.45);}' +
+        '#' +
+        ROOT_ID +
+        ' .ams-option-main{flex:1;min-width:0;cursor:pointer;display:flex;align-items:flex-start;gap:10px;}' +
         '#' +
         ROOT_ID +
         ' .ams-option input{margin-top:3px;}' +
@@ -221,7 +237,16 @@
         ' .ams-option strong{display:block;font-size:14px;}' +
         '#' +
         ROOT_ID +
-        ' .ams-option span{display:block;font-size:12px;color:#9aacbc;margin-top:2px;}' +
+        ' .ams-option .ams-host{display:block;font-size:11px;color:#7dd3c0;margin-top:2px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;}' +
+        '#' +
+        ROOT_ID +
+        ' .ams-option .ams-hint{display:block;font-size:12px;color:#9aacbc;margin-top:2px;}' +
+        '#' +
+        ROOT_ID +
+        ' .ams-btn-open{appearance:none;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.06);color:#edf3f8;border-radius:999px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer;flex-shrink:0;}' +
+        '#' +
+        ROOT_ID +
+        ' .ams-btn-open:hover{border-color:rgba(125,211,192,.55);background:rgba(125,211,192,.12);}' +
         '#' +
         ROOT_ID +
         ' .ams-note{margin:0 0 14px;font-size:12px;line-height:1.45;color:#9aacbc;}' +
@@ -281,29 +306,27 @@
     function openPlatforms(question, selectedIds, statusEl) {
       var opened = [];
       var blocked = [];
+      var details = [];
 
-      selectedIds.forEach(function (id) {
-        var platform = null;
-        for (var i = 0; i < PLATFORMS.length; i++) {
-          if (PLATFORMS[i].id === id) {
-            platform = PLATFORMS[i];
-            break;
-          }
-        }
-        if (!platform) return;
+      for (var i = 0; i < selectedIds.length; i++) {
+        var id = selectedIds[i];
+        var platform = getPlatformById(id);
+        var url = buildPlatformUrl(id, question);
+        if (!platform || !url) continue;
 
-        var url = platform.buildUrl(question);
-        var win = window.open(url, '_blank');
+        // Unique window name per platform so tabs cannot reuse the wrong site.
+        var win = window.open(url, 'ams_' + id);
         if (win) {
           opened.push(platform.name);
+          details.push(platform.name + ' → ' + platform.hostLabel);
         } else {
           blocked.push(platform.name);
         }
-      });
+      }
 
       var parts = [];
-      if (opened.length) {
-        parts.push('Opened: ' + opened.join(', ') + '.');
+      if (details.length) {
+        parts.push('Opened: ' + details.join('; ') + '.');
       }
       if (blocked.length) {
         parts.push(
@@ -323,6 +346,31 @@
       };
     }
 
+    function launchIds(question, ids, statusEl, triggerBtn) {
+      if (!ids.length) {
+        statusEl.className = 'ams-status err';
+        statusEl.textContent = 'Select at least one platform.';
+        return;
+      }
+
+      if (triggerBtn) triggerBtn.disabled = true;
+      statusEl.className = 'ams-status';
+      statusEl.textContent = 'Copying and opening…';
+
+      copyToClipboard(question).then(function (copied) {
+        var result = openPlatforms(question, ids, statusEl);
+        var copyMsg = copied
+          ? 'Question copied to clipboard.'
+          : 'Could not copy automatically — select the preview text and copy manually.';
+        statusEl.textContent = copyMsg + ' ' + result.message;
+        if (triggerBtn) triggerBtn.disabled = false;
+
+        if (result.opened.length && !result.blocked.length) {
+          setTimeout(removeExistingUi, 1400);
+        }
+      });
+    }
+
     function showChooser(question, source) {
       removeExistingUi();
       injectStyles();
@@ -337,18 +385,29 @@
 
       var optionsHtml = PLATFORMS.map(function (platform) {
         var hint = platform.prefill
-          ? 'Opens with URL prefill when supported. Paste from clipboard if needed.'
-          : 'Opens a blank chat — paste from your clipboard.';
+          ? 'URL prefill when supported. Paste if needed.'
+          : 'Blank chat — paste from clipboard.';
         return (
-          '<label class="ams-option">' +
+          '<div class="ams-option" data-platform-row="' +
+          platform.id +
+          '">' +
+          '<label class="ams-option-main">' +
           '<input type="checkbox" name="ams-platform" value="' +
           platform.id +
-          '" checked>' +
+          '">' +
           '<span><strong>' +
           platform.name +
-          '</strong><span>' +
+          '</strong>' +
+          '<span class="ams-host">' +
+          platform.hostLabel +
+          '</span>' +
+          '<span class="ams-hint">' +
           hint +
-          '</span></span></label>'
+          '</span></span></label>' +
+          '<button type="button" class="ams-btn-open" data-ams-open="' +
+          platform.id +
+          '">Open</button>' +
+          '</div>'
         );
       }).join('');
 
@@ -361,17 +420,19 @@
       root.innerHTML =
         '<div class="ams-backdrop" data-ams-close="1"></div>' +
         '<div class="ams-panel" role="dialog" aria-modal="true" aria-label="AI Multi-Search">' +
-        '<p class="ams-kicker">AI Multi-Search</p>' +
+        '<p class="ams-kicker">AI Multi-Search v' +
+        BOOKMARKLET_VERSION +
+        '</p>' +
         '<h2 class="ams-title">Reuse this question</h2>' +
         '<p class="ams-sub">' +
         sourceLabel +
-        ' Choose where to open it next.</p>' +
+        ' Use Open on one site, or check several and Open selected.</p>' +
         hostWarning +
         '<div class="ams-preview"></div>' +
         '<div class="ams-list">' +
         optionsHtml +
         '</div>' +
-        '<p class="ams-note">Your question is copied to the clipboard. URL prefill is used only where it is currently reliable (Claude). Nothing is auto-submitted.</p>' +
+        '<p class="ams-note">Your question is copied to the clipboard. Claude may prefill via URL; Gemini and DeepSeek need paste. Nothing is auto-submitted.</p>' +
         '<div class="ams-actions">' +
         '<button type="button" class="ams-btn ams-btn-primary" data-ams-go="1">Open selected</button>' +
         '<button type="button" class="ams-btn ams-btn-ghost" data-ams-close="1">Cancel</button>' +
@@ -386,8 +447,18 @@
 
       root.addEventListener('click', function (event) {
         var target = event.target;
-        if (target && target.getAttribute('data-ams-close')) {
+        if (!target) return;
+
+        if (target.getAttribute('data-ams-close')) {
           removeExistingUi();
+          return;
+        }
+
+        var openId = target.getAttribute('data-ams-open');
+        if (openId) {
+          event.preventDefault();
+          event.stopPropagation();
+          launchIds(question, [openId], statusEl, target);
         }
       });
 
@@ -399,29 +470,7 @@
         for (var i = 0; i < checked.length; i++) {
           ids.push(checked[i].value);
         }
-
-        if (!ids.length) {
-          statusEl.className = 'ams-status err';
-          statusEl.textContent = 'Select at least one platform.';
-          return;
-        }
-
-        goBtn.disabled = true;
-        statusEl.className = 'ams-status';
-        statusEl.textContent = 'Copying and opening…';
-
-        copyToClipboard(question).then(function (copied) {
-          var result = openPlatforms(question, ids, statusEl);
-          var copyMsg = copied
-            ? 'Question copied to clipboard.'
-            : 'Could not copy automatically — select the preview text and copy manually.';
-          statusEl.textContent = copyMsg + ' ' + result.message;
-          goBtn.disabled = false;
-
-          if (result.opened.length && !result.blocked.length) {
-            setTimeout(removeExistingUi, 1200);
-          }
-        });
+        launchIds(question, ids, statusEl, goBtn);
       });
 
       document.documentElement.appendChild(root);
