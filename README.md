@@ -2,7 +2,7 @@
 
 **One question. Multiple AIs.**
 
-A beginner-friendly browser bookmarklet that reuses your ChatGPT questions on **Claude**, **Gemini**, and **DeepSeek**. The project is plain HTML, CSS, and vanilla JavaScript—no React, Node.js, API keys, backend, or npm dependencies.
+A beginner-friendly browser bookmarklet that reuses your ChatGPT questions on **Claude**, **Gemini**, and **DeepSeek**. 
 
 ## What it does
 
@@ -97,13 +97,6 @@ Opening `index.html` via `file://` may work, but a local HTTP server is more rel
 
 Source: [github.com/charliezhou1/AI_multi_search](https://github.com/charliezhou1/AI_multi_search)
 
-## GitHub Pages
-
-1. Push this repository to GitHub.
-2. **Settings → Pages → Build and deployment**
-3. Source: **Deploy from a branch**
-4. Branch: `main` (or `master`), folder: `/ (root)`
-5. Open [https://charliezhou1.github.io/AI_multi_search/](https://charliezhou1.github.io/AI_multi_search/) and install the bookmarklet from there.
 
 Visitors should install from the **published HTTPS page**, not from a raw GitHub file URL, so the bookmarklet link is generated correctly.
 
