@@ -1,6 +1,6 @@
 # AI Multi-Search
 
-**One question. Multiple AIs.**
+**One question. Multiple AIs.** Please check https://charliezhou1.github.io/AI_multi_search/
 
 A beginner-friendly browser bookmarklet that reuses your ChatGPT questions on **Claude**, **Gemini**, and **DeepSeek**. 
 
