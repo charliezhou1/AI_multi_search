@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AI Multi-Search — One question. Multiple AIs.</title>
+    <meta
+      name="description"
+      content="A browser bookmarklet that reuses your ChatGPT questions on Claude, Gemini, and DeepSeek."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Sora:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --ink: #102033;
+        --ink-soft: #3a4d63;
+        --paper: #f3f7f4;
+        --foam: #dff3ea;
+        --sea: #0f766e;
+        --sea-deep: #0b4f4a;
+        --spark: #e85d4c;
+        --line: rgba(16, 32, 51, 0.12);
+        --shadow: 0 18px 50px rgba(16, 32, 51, 0.12);
+        --radius: 18px;
+        --max: 1080px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        margin: 0;
+        color: var(--ink);
+        font-family: "Sora", sans-serif;
+        background:
+          radial-gradient(1200px 600px at 10% -10%, #c8efe0 0%, transparent 55%),
+          radial-gradient(900px 500px at 100% 0%, #ffe1d6 0%, transparent 45%),
+          linear-gradient(180deg, #f7fbf8 0%, var(--paper) 40%, #eaf3ef 100%);
+        min-height: 100vh;
+        line-height: 1.55;
+      }
+
+      a {
+        color: var(--sea-deep);
+      }
+
+      a:hover {
+        color: var(--spark);
+      }
+
+      .wrap {
+        width: min(var(--max), calc(100% - 2rem));
+        margin-inline: auto;
+      }
+
+      /* —— Header —— */
+      .site-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 1.25rem 0 0.5rem;
+        animation: rise 0.7s ease both;
+      }
+
+      .brand-mark {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.65rem;
+        text-decoration: none;
+        color: var(--ink);
+        font-weight: 700;
+        letter-spacing: -0.02em;
+      }
+
+      .brand-dot {
+        width: 0.75rem;
+        height: 0.75rem;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--sea), var(--spark));
+        box-shadow: 0 0 0 4px rgba(15, 118, 110, 0.12);
+      }
+
+      .nav-links {
+        display: flex;
+        gap: 1rem;
+        font-size: 0.9rem;
+      }
+
+      .nav-links a {
+        text-decoration: none;
+        color: var(--ink-soft);
+        font-weight: 500;
+      }
+
+      .nav-links a:hover {
+        color: var(--ink);
+      }
+
+      /* —— Hero —— */
+      .hero {
+        position: relative;
+        padding: 3.5rem 0 4.5rem;
+        overflow: hidden;
+      }
+
+      .hero::before {
+        content: "";
+        position: absolute;
+        inset: 8% -5% auto auto;
+        width: min(520px, 70vw);
+        height: min(520px, 70vw);
+        border-radius: 40% 60% 55% 45%;
+        background:
+          linear-gradient(145deg, rgba(15, 118, 110, 0.22), rgba(232, 93, 76, 0.18)),
+          url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%230f766e' fill-opacity='0.08'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+        filter: blur(2px);
+        animation: drift 12s ease-in-out infinite alternate;
+        pointer-events: none;
+        z-index: 0;
+      }
+
+      .hero-inner {
+        position: relative;
+        z-index: 1;
+        max-width: 720px;
+      }
+
+      .product-name {
+        margin: 0 0 0.85rem;
+        font-family: "Fraunces", serif;
+        font-size: clamp(2.8rem, 8vw, 4.6rem);
+        line-height: 0.95;
+        letter-spacing: -0.04em;
+        font-weight: 700;
+        animation: rise 0.8s ease 0.05s both;
+      }
+
+      .headline {
+        margin: 0 0 0.9rem;
+        font-size: clamp(1.35rem, 3.4vw, 1.85rem);
+        font-weight: 600;
+        letter-spacing: -0.02em;
+        color: var(--sea-deep);
+        animation: rise 0.8s ease 0.15s both;
+      }
+
+      .lede {
+        margin: 0 0 1.75rem;
+        max-width: 38rem;
+        color: var(--ink-soft);
+        font-size: 1.05rem;
+        animation: rise 0.8s ease 0.25s both;
+      }
+
+      .cta-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        align-items: center;
+        animation: rise 0.8s ease 0.35s both;
+      }
+
+      .bookmarklet {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.55rem;
+        padding: 0.95rem 1.25rem;
+        border-radius: 999px;
+        background: var(--ink);
+        color: #f7fbf8;
+        text-decoration: none;
+        font-weight: 600;
+        box-shadow: var(--shadow);
+        cursor: grab;
+        user-select: none;
+        transition: transform 0.2s ease, background 0.2s ease;
+      }
+
+      .bookmarklet:hover {
+        background: var(--sea-deep);
+        color: #fff;
+        transform: translateY(-2px);
+      }
+
+      .bookmarklet:active {
+        cursor: grabbing;
+        transform: scale(0.98);
+      }
+
+      .bookmarklet .grip {
+        width: 0.7rem;
+        height: 0.9rem;
+        opacity: 0.55;
+        background:
+          radial-gradient(circle, #fff 1.2px, transparent 1.3px) 0 0 / 6px 6px,
+          radial-gradient(circle, #fff 1.2px, transparent 1.3px) 3px 3px / 6px 6px;
+      }
+
+      .btn {
+        appearance: none;
+        border: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.65);
+        color: var(--ink);
+        font: inherit;
+        font-weight: 600;
+        font-size: 0.95rem;
+        padding: 0.95rem 1.2rem;
+        border-radius: 999px;
+        cursor: pointer;
+        transition: background 0.2s ease, border-color 0.2s ease;
+      }
+
+      .btn:hover {
+        background: #fff;
+        border-color: rgba(15, 118, 110, 0.35);
+      }
+
+      .btn:focus-visible,
+      .bookmarklet:focus-visible {
+        outline: 3px solid rgba(15, 118, 110, 0.35);
+        outline-offset: 2px;
+      }
+
+      .hint {
+        margin: 0.9rem 0 0;
+        font-size: 0.85rem;
+        color: var(--ink-soft);
+        animation: rise 0.8s ease 0.45s both;
+      }
+
+      .copy-status {
+        min-height: 1.25em;
+        margin: 0.4rem 0 0;
+        font-size: 0.85rem;
+        color: var(--sea);
+        font-weight: 500;
+      }
+
+      /* —— Sections —— */
+      section {
+        padding: 2.75rem 0;
+      }
+
+      .section-title {
+        margin: 0 0 0.6rem;
+        font-family: "Fraunces", serif;
+        font-size: clamp(1.6rem, 3vw, 2.1rem);
+        letter-spacing: -0.03em;
+      }
+
+      .section-lead {
+        margin: 0 0 1.5rem;
+        max-width: 40rem;
+        color: var(--ink-soft);
+      }
+
+      .split {
+        display: grid;
+        gap: 1.25rem;
+      }
+
+      @media (min-width: 760px) {
+        .split.platforms {
+          grid-template-columns: repeat(3, 1fr);
+        }
+
+        .split.steps {
+          grid-template-columns: repeat(3, 1fr);
+        }
+      }
+
+      .platform,
+      .step {
+        padding: 1.15rem 0;
+        border-top: 1px solid var(--line);
+      }
+
+      .platform h3,
+      .step h3 {
+        margin: 0 0 0.4rem;
+        font-size: 1.05rem;
+      }
+
+      .platform p,
+      .step p {
+        margin: 0;
+        color: var(--ink-soft);
+        font-size: 0.95rem;
+      }
+
+      .badge {
+        display: inline-block;
+        margin-top: 0.55rem;
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--sea-deep);
+      }
+
+      .badge.muted {
+        color: var(--ink-soft);
+      }
+
+      .install-list,
+      .privacy-list {
+        margin: 0;
+        padding-left: 1.15rem;
+        color: var(--ink-soft);
+      }
+
+      .install-list li,
+      .privacy-list li {
+        margin-bottom: 0.65rem;
+      }
+
+      .callout {
+        margin-top: 1.5rem;
+        padding: 1.1rem 1.2rem;
+        border-left: 3px solid var(--sea);
+        background: rgba(15, 118, 110, 0.06);
+        color: var(--ink-soft);
+        font-size: 0.95rem;
+      }
+
+      .github-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
+        margin-top: 0.5rem;
+        font-weight: 600;
+        text-decoration: none;
+      }
+
+      .site-footer {
+        padding: 2rem 0 3rem;
+        border-top: 1px solid var(--line);
+        color: var(--ink-soft);
+        font-size: 0.9rem;
+      }
+
+      .site-footer .wrap {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem 1.5rem;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      @keyframes rise {
+        from {
+          opacity: 0;
+          transform: translateY(14px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      @keyframes drift {
+        from {
+          transform: translate(0, 0) rotate(0deg);
+        }
+        to {
+          transform: translate(-18px, 22px) rotate(8deg);
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          animation: none !important;
+          transition: none !important;
+          scroll-behavior: auto !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header class="site-header">
+        <a class="brand-mark" href="#top" id="top">
+          <span class="brand-dot" aria-hidden="true"></span>
+          AI Multi-Search
+        </a>
+        <nav class="nav-links" aria-label="Page">
+          <a href="#install">Install</a>
+          <a href="#privacy">Privacy</a>
+          <a href="#github">GitHub</a>
+        </nav>
+      </header>
+
+      <main>
+        <section class="hero" aria-labelledby="product-name">
+          <div class="hero-inner">
+            <h1 class="product-name" id="product-name">AI Multi-Search</h1>
+            <p class="headline">One question. Multiple AIs.</p>
+            <p class="lede">
+              Drag this bookmarklet to your bookmarks bar. On ChatGPT, click it to
+              reuse your latest question—or any text you highlight—on Claude,
+              Gemini, and DeepSeek.
+            </p>
+
+            <div class="cta-row">
+              <a
+                id="bookmarklet-link"
+                class="bookmarklet"
+                href="#"
+                title="Drag me to your bookmarks bar"
+              >
+                <span class="grip" aria-hidden="true"></span>
+                AI Multi-Search
+              </a>
+              <button type="button" class="btn" id="copy-bookmarklet">
+                Copy Bookmarklet
+              </button>
+            </div>
+            <p class="hint">
+              Drag the teal-black button into your bookmarks bar. Prefer a
+              manual setup? Use Copy Bookmarklet, then paste it as a new bookmark’s URL.
+            </p>
+            <p class="copy-status" id="copy-status" aria-live="polite"></p>
+          </div>
+        </section>
+
+        <section id="how" aria-labelledby="how-title">
+          <h2 class="section-title" id="how-title">How it works</h2>
+          <p class="section-lead">
+            Everything runs in your browser on the page you already have open.
+            No accounts, API keys, or backend.
+          </p>
+          <div class="split steps">
+            <div class="step">
+              <h3>1. Capture</h3>
+              <p>
+                Prefer highlighted text if you selected any. Otherwise, grab the
+                latest user question from the ChatGPT page.
+              </p>
+            </div>
+            <div class="step">
+              <h3>2. Choose</h3>
+              <p>
+                Pick Claude, Gemini, DeepSeek—or any combination—in a small
+                on-page dialog.
+              </p>
+            </div>
+            <div class="step">
+              <h3>3. Open &amp; paste</h3>
+              <p>
+                Selected sites open in new tabs. Your question is copied to the
+                clipboard. Claude may also get a URL prefill when that still works.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <section id="platforms" aria-labelledby="platforms-title">
+          <h2 class="section-title" id="platforms-title">Supported platforms</h2>
+          <p class="section-lead">
+            Prefill is used only where it is currently reliable. Nothing is
+            automatically submitted—you always review before sending.
+          </p>
+          <div class="split platforms">
+            <div class="platform">
+              <h3>Claude</h3>
+              <p>
+                Opens a new chat on claude.ai. When supported, the question is
+                passed with a <code>?q=</code> URL parameter so the composer can
+                prefill.
+              </p>
+              <span class="badge">URL prefill when available</span>
+            </div>
+            <div class="platform">
+              <h3>Gemini</h3>
+              <p>
+                Opens gemini.google.com. Gemini does not offer a reliable public
+                URL prefill, so paste from the clipboard.
+              </p>
+              <span class="badge muted">Clipboard paste</span>
+            </div>
+            <div class="platform">
+              <h3>DeepSeek</h3>
+              <p>
+                Opens chat.deepseek.com. No reliable native URL prefill—paste
+                the copied question into the chat box.
+              </p>
+              <span class="badge muted">Clipboard paste</span>
+            </div>
+          </div>
+        </section>
+
+        <section id="install" aria-labelledby="install-title">
+          <h2 class="section-title" id="install-title">Installation</h2>
+          <p class="section-lead">
+            Works best in desktop Chrome or Edge with the bookmarks bar visible.
+          </p>
+          <ol class="install-list">
+            <li>
+              Show your bookmarks bar
+              (<strong>(Chrome: View → Always Show Bookmarks Bar)</strong>, or
+              press <kbd>Cmd/Ctrl + Shift + B</kbd>.
+            </li>
+            <li>
+              Drag the <strong>AI Multi-Search</strong> button above onto the
+              bookmarks bar.
+            </li>
+            <li>
+              Or click <strong>Copy Bookmarklet</strong>, create a new bookmark,
+              and paste the code into the URL field. Name it
+              “AI Multi-Search”.
+            </li>
+            <li>
+              Open a conversation on
+              <a href="https://chatgpt.com" rel="noopener noreferrer">chatgpt.com</a>,
+              then click the bookmarklet.
+            </li>
+            <li>
+              If new tabs do not open, allow pop-ups for ChatGPT and try again.
+            </li>
+          </ol>
+          <div class="callout">
+            <strong>Browser limits:</strong> Bookmarklets can only read the
+            page you are on (same-origin). They cannot reach into other tabs.
+            Multiple <code>window.open</code> calls may be blocked until you
+            allow pop-ups. Prefer selecting text if ChatGPT’s layout changes and
+            auto-detection misses your question.
+          </div>
+        </section>
+
+        <section id="privacy" aria-labelledby="privacy-title">
+          <h2 class="section-title" id="privacy-title">Privacy</h2>
+          <p class="section-lead">
+            Designed to stay local. Your prompts are not sent to us.
+          </p>
+          <ul class="privacy-list">
+            <li>No accounts, tracking pixels, or analytics in this project.</li>
+            <li>No backend and no API keys.</li>
+            <li>
+              The bookmarklet does not use <code>eval</code> and does not fetch
+              remote scripts.
+            </li>
+            <li>
+              Question text is read from the current page (or your selection),
+              copied to your clipboard, and only sent onward when you open a
+              destination site you choose.
+            </li>
+            <li>
+              Destination sites (Claude, Gemini, DeepSeek) have their own privacy
+              policies once a tab opens there.
+            </li>
+          </ul>
+        </section>
+
+        <section id="github" aria-labelledby="github-title">
+          <h2 class="section-title" id="github-title">Source &amp; GitHub Pages</h2>
+          <p class="section-lead">
+            Plain HTML, CSS, and JavaScript. Compatible with GitHub Pages—enable
+            Pages on the repository’s main branch (root), then open the published
+            site to install the bookmarklet.
+          </p>
+          <a
+            class="github-link"
+            href="https://github.com/charliezhou1/AI_multi_search"
+            rel="noopener noreferrer"
+          >
+            View on GitHub →
+          </a>
+        </section>
+      </main>
+
+      <footer class="site-footer">
+        <div class="wrap" style="width: 100%; padding: 0">
+          <span>AI Multi-Search · client-side bookmarklet</span>
+          <span id="version-label"></span>
+        </div>
+      </footer>
+    </div>
+
+    <script src="bookmarklet.js"></script>
+    <script>
+      (function () {
+        var link = document.getElementById("bookmarklet-link");
+        var copyBtn = document.getElementById("copy-bookmarklet");
+        var status = document.getElementById("copy-status");
+        var versionLabel = document.getElementById("version-label");
+
+        if (!window.AIMultiSearch || !AIMultiSearch.getBookmarkletHref) {
+          status.textContent =
+            "Could not load bookmarklet.js. Serve this folder over HTTP (see README) and refresh.";
+          return;
+        }
+
+        var href = AIMultiSearch.getBookmarkletHref();
+        link.setAttribute("href", href);
+        versionLabel.textContent = "v" + AIMultiSearch.version;
+
+        // Prevent accidental navigation when clicking (users should drag).
+        link.addEventListener("click", function (event) {
+          event.preventDefault();
+          status.textContent =
+            "Drag this link to your bookmarks bar, or use Copy Bookmarklet.";
+        });
+
+        copyBtn.addEventListener("click", function () {
+          var text = href;
+          function done(ok) {
+            status.textContent = ok
+              ? "Bookmarklet copied. Create a bookmark and paste it into the URL field."
+              : "Copy failed. Long-press or right-click the bookmarklet link and copy the link address.";
+          }
+
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(
+              function () {
+                done(true);
+              },
+              function () {
+                done(fallbackCopy(text));
+              }
+            );
+          } else {
+            done(fallbackCopy(text));
+          }
+        });
+
+        function fallbackCopy(text) {
+          try {
+            var area = document.createElement("textarea");
+            area.value = text;
+            area.setAttribute("readonly", "");
+            area.style.cssText =
+              "position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;";
+            document.body.appendChild(area);
+            area.select();
+            var ok = document.execCommand("copy");
+            document.body.removeChild(area);
+            return !!ok;
+          } catch (err) {
+            return false;
+          }
+        }
+      })();
+    </script>
+  </body>
+</html>
